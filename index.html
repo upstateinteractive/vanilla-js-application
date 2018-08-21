@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="X-UA-Compatible" content="ie=edge">
+  <title>Document</title>
+</head>
+
+<body>
+  <div id="output">
+    <ul id="list">
+
+    </ul>
+    <label for="name">Name</label>
+    <input type="text" placeholder="Name" name="name" id="name">
+    <button id="save">Save</button>
+    <button id="clear">Clear List</button>
+  </div>
+  <!-- Load Babel -->
+  <script src="https://unpkg.com/babel-standalone@6/babel.min.js"></script>
+  <!-- Load Redux -->
+  <script src="https://unpkg.com/redux@4.0.0/dist/redux.min.js"></script>
+  <!-- Load Redux Thunk -->
+  <script src="https://unpkg.com/redux-thunk@2.3.0/dist/redux-thunk.min.js"></script>
+
+  <!-- Helpers -->
+  <script type="text/babel">
+    const $ = document.querySelector.bind(document)
+  </script>
+
+  <!-- ActionTypes -->
+  <script type="text/babel">
+    const actionTypes = {
+      SAVE: '[List] Save',
+      CLEAR: '[List] Clear'
+    }
+  </script>
+
+  <!-- ActionCreators -->
+  <script type="text/babel">
+    const actions = {
+      save: (payload) => ({
+        type: actionTypes.SAVE,
+        payload
+      }),
+      clear: () => ({
+        type: actionTypes.CLEAR
+      }),
+    }
+  </script>
+
+  <!-- reducers -->
+  <script type="text/babel">
+    const initialState = {
+      ids: [1],
+      names: {
+        1: 'Peter'
+      }
+    }
+
+    const reducer = (state = initialState, action) => {
+      switch(action.type) {
+        case actionTypes.SAVE: {
+          const id = (state.ids[state.ids.length - 1] + 1) || 1
+          return {
+            ids: [...state.ids, id],
+            names: {
+              ...state.names,
+              [id]: action.payload
+            }
+          }
+        }
+        case actionTypes.CLEAR: {
+          return {
+            ids: [],
+            names: {}
+          }
+        }
+        default: {
+          return state
+        }
+      }
+    }
+
+    const lastAction = (state = null, action) => {
+      return action
+    }
+
+    const reducers = Redux.combineReducers({
+      reducer,
+      lastAction
+    })
+  </script>
+
+  <!-- selectors -->
+  <script type="text/babel">
+    const selectors = {
+      names: (state) => state.ids.map(id => state.names[id])
+    }
+  </script>
+
+  <!-- configure store -->
+  <script type="text/babel">
+    const { devToolsExtension } = window;
+    const configureStore = () => {
+      return Redux.createStore(
+        reducers,
+        Redux.compose(
+          Redux.applyMiddleware(ReduxThunk.default),
+          devToolsExtension ? devToolsExtension() : f => f
+        )
+      )
+    };
+  </script>
+
+
+  <!-- List Item Component -->
+  <script type="text/babel">
+    function $ListItem (item) {
+      const $li = document.createElement('li')
+      $li.innerText = item
+      return $li
+    }
+  </script>
+
+  <!-- List Component -->
+  <script type="text/babel">
+    class List {
+      constructor (store) {
+        this.$list = $('#list')
+        this.$save = $('#save')
+        this.$clear = $('#clear')
+        this.$input = $('#name')
+        this.store = store
+        this.actions = {}
+        this.actionTypes = {}
+      }
+
+      // Subscriber
+      subscriber () {
+        const lastAction = this.store.getState().lastAction
+        const state = this.store.getState().reducer
+        switch (lastAction.type) {
+          case this.actionTypes.SAVE: {
+            const list = selectors.names(state)
+            this.initializeList(list)
+            break
+          }
+          case this.actionTypes.CLEAR: {
+            const list = selectors.names(state)
+            this.initializeList(list)
+            break
+          }
+          default:
+            break
+        }
+      }
+
+      // Event Handlers
+      onSave (e) {
+        e.preventDefault()
+        const name = this.$input.value
+        this.store.dispatch(this.actions.save(name))
+      }
+
+      onClear (e) {
+        e.preventDefault()
+        this.store.dispatch(this.actions.clear())
+      }
+
+      addEvents () {
+        this.$save.addEventListener('click', this.onSave.bind(this))
+        this.$clear.addEventListener('click', this.onClear.bind(this))
+      }
+
+      // Required Methods
+      init ({ actionTypes, actions }) {
+        this.actions = actions
+        this.actionTypes = actionTypes
+        this.addEvents()
+
+        const list = selectors.names(this.store.getState().reducer)
+        this.initializeList(list)
+
+        this.store.subscribe(this.subscriber.bind(this))
+      }
+
+      refresh ({ actionTypes, actions }) {
+        this.actions = actions
+        this.actionTypes = actionTypes
+      }
+
+      // General Methods
+      emptyList () {
+        this.$list.innerHTML = ''
+      }
+
+      initializeList (list = []) {
+        const fragment = document.createDocumentFragment()
+        list.forEach(item => fragment.appendChild($ListItem(item)))
+        this.emptyList()
+        this.$list.appendChild(fragment)
+      }
+    }
+  </script>
+
+
+  <script type="text/babel">
+    const store = configureStore()
+    const list = new List(store)
+
+    list.init({
+      actionTypes,
+      actions,
+    })
+  </script>
+</body>
+
+</html>
